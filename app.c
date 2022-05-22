@@ -391,14 +391,17 @@ VOID dev_raw_dp_cb(IN CONST TY_RECV_RAW_DP_S *dp)
  * @brief ；模块初始化入口
  * @return
  */
-OPERATE_RET device_init(VOID)
+OPERATE_RET device_init(VOID) //main
 {
     OPERATE_RET op_ret = OPRT_OK;
     LED_HANDLE led_handle;
     uint8_t uart0_rx_buf[BUF_SIZE];
     #define LORA_SLAVE_ACK "I'M SLAVE!!!"
-    #define COMMAND_LENGTH 6
-    uint8_t UART_COMMAND[COMMAND_LENGTH] = {0};
+    #define COMMAND_LENGTH 10
+    #define MAC_LENGTH 6
+    #define SYSTEM_SN 0x001e1000
+    uint8_t CMD[COMMAND_LENGTH] = {0};
+    uint8_t MAC[MAC_LENGTH];
     uint8_t length = 0;
     int i = 0;
 
@@ -409,6 +412,9 @@ OPERATE_RET device_init(VOID)
         return;
     }
 
+    tuya_os_adapt_flash_read(SYSTEM_SN, MAC, sizeof(MAC));
+    PR_NOTICE("MAC:%.2X%.2X%.2X%.2X%.2X%.2X",MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
+
     tuya_set_led_light_type(led_handle, OL_FLASH_HIGH, 200, 2000);
 
     uart0_init();
@@ -417,7 +423,7 @@ OPERATE_RET device_init(VOID)
     /* gpio output init */
     tuya_pin_init(TUYA_PA15, TUYA_PIN_MODE_OUT_PP_HIGH);
     tuya_pin_write(TUYA_PA15, TUYA_PIN_LOW);
-    memset(UART_COMMAND,0,sizeof(UART_COMMAND));
+    memset(CMD,0,sizeof(CMD));
     PR_NOTICE("device_init ok  free_mem_size:%d", tuya_hal_system_getheapsize());
     PR_DEBUG("CHRIS LORA INIT SUCCESS!!!!!!!");
     for(;;)
@@ -428,37 +434,48 @@ OPERATE_RET device_init(VOID)
             PR_NOTICE("op_ret=%d", op_ret);
             for (i=0; i<op_ret; i++)
             {
-                UART_COMMAND[length+i] = uart0_rx_buf[i];
+                CMD[length+i] = uart0_rx_buf[i];
             }
             length += op_ret;
-            PR_NOTICE("#%.2X%.2X%.2X%.2X%.2X%.2X",UART_COMMAND[0],UART_COMMAND[1],UART_COMMAND[2],UART_COMMAND[3],UART_COMMAND[4],UART_COMMAND[5]);
+            PR_NOTICE("R:%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X",
+                        CMD[0],CMD[1],CMD[2],CMD[3],CMD[4],CMD[5],CMD[6],CMD[7],CMD[8],CMD[9]);
+            PR_NOTICE("MAC:%.2X%.2X%.2X%.2X%.2X%.2X",MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
             tuya_uart_write(uart0, uart0_rx_buf, op_ret);
+            tuya_uart_write(uart0, MAC, sizeof(MAC));
             memset(uart0_rx_buf,0,sizeof(uart0_rx_buf));
         }
-        if (length >= 6) {
-            PR_NOTICE(")%.2X%.2X%.2X%.2X%.2X%.2X",UART_COMMAND[0],UART_COMMAND[1],UART_COMMAND[2],UART_COMMAND[3],UART_COMMAND[4],UART_COMMAND[5]);
+        if (length >= COMMAND_LENGTH) {
+            PR_NOTICE("OK:%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X",
+                        CMD[0],CMD[1],CMD[2],CMD[3],CMD[4],CMD[5],CMD[6],CMD[7],CMD[8],CMD[9]);
             length = 0;
-            if (UART_COMMAND[0] == 0xEE &&
-                UART_COMMAND[1] == 0xFF &&
-                UART_COMMAND[2] == 0x11 &&
-                UART_COMMAND[3] == 0x22 &&
-                UART_COMMAND[4] == 0x33 &&
-                UART_COMMAND[5] == 0x44) {
+            if (CMD[0] == 0xEE &&
+                CMD[1] == 0xFF &&
+                CMD[2] == MAC[5] &&
+                CMD[3] == MAC[4] &&
+                CMD[4] == MAC[3] &&
+                CMD[5] == MAC[2] &&
+                CMD[6] == MAC[1] &&
+                CMD[8] == 0xF1 &&
+                CMD[9] == 0x0A) {
                   tuya_pin_write(TUYA_PA15, TUYA_PIN_HIGH);
                   tuya_set_led_light_type(led_handle, OL_FLASH_HIGH, 200, 2000);
                   PR_NOTICE("CHRIS LORA OPEN SUCCESS!!!!!!!");
-            } else if (UART_COMMAND[0] == 0xEE &&
-                UART_COMMAND[1] == 0xFF &&
-                UART_COMMAND[2] == 0x44 &&
-                UART_COMMAND[3] == 0x33 &&
-                UART_COMMAND[4] == 0x22 &&
-                UART_COMMAND[5] == 0x11) {
+            } else if (
+                CMD[0] == 0xEE &&
+                CMD[1] == 0xFF &&
+                CMD[2] == MAC[5] &&
+                CMD[3] == MAC[4] &&
+                CMD[4] == MAC[3] &&
+                CMD[5] == MAC[2] &&
+                CMD[6] == MAC[1] &&
+                CMD[8] == 0xF0 &&
+                CMD[9] == 0x0A) {
                 tuya_pin_write(TUYA_PA15, TUYA_PIN_LOW);
                 PR_NOTICE("CHRIS LORA CLOSE SUCCESS!!!!!!!");
             }
-            memset(UART_COMMAND,0,sizeof(UART_COMMAND));
+            memset(CMD,0,sizeof(CMD));
         } else {
-            tuya_hal_system_sleep(1000);
+            tuya_hal_system_sleep(2);
             tuya_uart_write(uart0, LORA_SLAVE_ACK, sizeof(LORA_SLAVE_ACK));
         }
     }
