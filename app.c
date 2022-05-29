@@ -440,13 +440,12 @@ OPERATE_RET device_init(VOID) //main
             PR_NOTICE("R:%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X",
                         CMD[0],CMD[1],CMD[2],CMD[3],CMD[4],CMD[5],CMD[6],CMD[7],CMD[8],CMD[9]);
             PR_NOTICE("MAC:%.2X%.2X%.2X%.2X%.2X%.2X",MAC[0],MAC[1],MAC[2],MAC[3],MAC[4],MAC[5]);
-            tuya_uart_write(uart0, uart0_rx_buf, op_ret);
-            tuya_uart_write(uart0, MAC, sizeof(MAC));
             memset(uart0_rx_buf,0,sizeof(uart0_rx_buf));
         }
         if (length >= COMMAND_LENGTH) {
             PR_NOTICE("OK:%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X%.2X",
                         CMD[0],CMD[1],CMD[2],CMD[3],CMD[4],CMD[5],CMD[6],CMD[7],CMD[8],CMD[9]);
+            tuya_uart_write(uart0, MAC, sizeof(MAC));
             length = 0;
             if (CMD[0] == 0xEE &&
                 CMD[1] == 0xFF &&
@@ -455,11 +454,25 @@ OPERATE_RET device_init(VOID) //main
                 CMD[4] == MAC[3] &&
                 CMD[5] == MAC[2] &&
                 CMD[6] == MAC[1] &&
+                CMD[7] == 0x00 &&
                 CMD[8] == 0xF1 &&
                 CMD[9] == 0x0A) {
-                  tuya_pin_write(TUYA_PA15, TUYA_PIN_HIGH);
-                  tuya_set_led_light_type(led_handle, OL_FLASH_HIGH, 200, 2000);
-                  PR_NOTICE("CHRIS LORA OPEN SUCCESS!!!!!!!");
+                tuya_pin_write(TUYA_PA15, TUYA_PIN_HIGH);
+                tuya_set_led_light_type(led_handle, OL_FLASH_HIGH, 200, 2000);
+                PR_NOTICE("CHRIS LORA OPEN SUCCESS!!!!!!!");
+            } else if (CMD[0] == 0xEE &&
+                CMD[1] == 0xFF &&
+                CMD[2] == MAC[5] &&
+                CMD[3] == MAC[4] &&
+                CMD[4] == MAC[3] &&
+                CMD[5] == MAC[2] &&
+                CMD[6] == MAC[1] &&
+                CMD[7] == MAC[0] &&
+                CMD[8] == 0xF1 &&
+                CMD[9] == 0x0A) {
+                tuya_pin_write(TUYA_PA15, TUYA_PIN_HIGH);
+                tuya_set_led_light_type(led_handle, OL_FLASH_HIGH, 200, 2000);
+                PR_NOTICE("CHRIS LORA OPEN SUCCESS!!!!!!!");
             } else if (
                 CMD[0] == 0xEE &&
                 CMD[1] == 0xFF &&
